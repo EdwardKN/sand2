@@ -171,7 +171,7 @@ function buttonPress(){
         }else if(Math.abs(currentTool) % 4 == 1){
             elements[x + "," + y] = new Liquid(x,y,"blue",5)
         }else if(Math.abs(currentTool) % 4 == 2){
-            elements[x + "," + y] = new Gas(x,y,"gray")
+            elements[x + "," + y] = new Gas(x,y,"gray",5)
         }else if(Math.abs(currentTool) % 4 == 3){
             elements[x + "," + y] = undefined;
             let tmpX = x >= 0 ? x % chunkSize : (chunkSize + x % (chunkSize));
@@ -189,9 +189,9 @@ function buttonPress(){
 
 function testGenerate() {
     for (let x = -150; x < 150; x++) {
-        for (let y = -150; y < 150; y++) {
+        for (let y = -80; y < 80; y++) {
             let perlin = 0//getPerlinNoise(x, y, 20, 100)
-            if (perlin > 0.5 || Math.abs(x) > 100 || Math.abs(y) > 100) {
+            if (perlin > 0.5 || Math.abs(x) > 100 || Math.abs(y) > 40) {
                 elements[x + "," + y] = new ImmovableSolid(x,y,"brown")
                 elements[x + "," + y].draw()
             }
@@ -255,7 +255,21 @@ class Element{
         this.draw();
     }
     async switchWith(x,y){
+        let tmp = elements[x+ "," + y] 
+
+        tmp.x = this.x;
+        tmp.y = this.y;
+
+        this.x = x;
+        this.y = y;
+        elements[x + "," + y] = this;
+
+        elements[tmp.x + "," + tmp.y] = tmp;
+
+        this.draw();
+        tmp.draw();
         
+
     }
 }
 
@@ -274,30 +288,39 @@ class Liquid extends Element{
         
         if(targetCell == undefined){
             this.moveTo(this.x,this.y+1)
-            return;
-        }else{
-            this.lookHorizontally();
+        }
+        if(targetCell !== undefined){
+            this.lookHorizontally(Math.random() > 0.5 ? -1 : 1);
         }
     }
-    async lookHorizontally(){
-        let maxVelocityX = 0;
-        let random = Math.random() > 0.5 ? -1 : 1;
-
+    async lookHorizontally(dir){
+        await sleep()
+        let maxDir = 0;
         for(let i = 1; i < this.dispersionRate+1; i++){
-            if (getElementAtCell(this.x+ -i*random,this.y) == undefined) {
-                maxVelocityX = -i*random;
-            }else if (getElementAtCell(this.x+ i*random,this.y) == undefined) {
-                maxVelocityX = i*random;
+            let targetCell1 = getElementAtCell(this.x+dir*i,this.y);
+            let targetCell2 = getElementAtCell(this.x+dir*-i,this.y);
+            if(targetCell1 == undefined){
+                maxDir = i*dir
+            }else if(targetCell2 == undefined){
+                maxDir = i*dir*-1
             }else{
                 i = undefined;
             }
         }
-        if(maxVelocityX !== 0){
-            this.moveTo(this.x+maxVelocityX, this.y);
+        if(maxDir !== 0){
+            if(maxDir * dir < 0){
+                this.lookHorizontally(-dir)
+            }else{
+                this.moveTo(this.x+maxDir,this.y)
+            }
         }
     }
 }
 class Gas extends Element{
+    constructor(x,y,color,dispersionRate){
+        super(x,y,color);
+        this.dispersionRate = dispersionRate
+    }
     async step(){
         await sleep()
         let targetCell = getElementAtCell(this.x,this.y-1);
@@ -306,17 +329,29 @@ class Gas extends Element{
             this.moveTo(this.x,this.y-1)
         }
         if(targetCell !== undefined){
-            this.lookHorizontally(Math.random() > 0.5 ? -1 : 1,true);
+            this.lookHorizontally(Math.random() > 0.5 ? -1 : 1);
         }
     }
-    async lookHorizontally(dir,first){
-        let targetCell = getElementAtCell(this.x+dir,this.y);
-
-        if(targetCell == undefined){
-            this.moveTo(this.x+dir,this.y) 
+    async lookHorizontally(dir){
+        await sleep()
+        let maxDir = 0;
+        for(let i = 1; i < this.dispersionRate+1; i++){
+            let targetCell1 = getElementAtCell(this.x+dir*i,this.y);
+            let targetCell2 = getElementAtCell(this.x+dir*-i,this.y);
+            if(targetCell1 == undefined){
+                maxDir = i*dir
+            }else if(targetCell2 == undefined){
+                maxDir = i*dir*-1
+            }else{
+                i = undefined;
+            }
         }
-        if(targetCell instanceof Solid && first == true){
-            this.lookHorizontally(-1,false);
+        if(maxDir !== 0){
+            if(maxDir * dir < 0){
+                this.lookHorizontally(-dir)
+            }else{
+                this.moveTo(this.x+maxDir,this.y)
+            }
         }
     }
 }
@@ -329,7 +364,7 @@ class MovableSolid extends Solid{
         if(targetCell == undefined){
             this.moveTo(this.x,this.y+1)
         }
-        if(targetCell instanceof Liquid){
+        if(targetCell instanceof Liquid || targetCell instanceof Gas){
             this.switchWith(this.x,this.y+1)
         }
         if(targetCell instanceof Solid){
@@ -342,7 +377,7 @@ class MovableSolid extends Solid{
         if(targetCell == undefined){
             this.moveTo(this.x+dir,this.y+1)
         }
-        if(targetCell instanceof Liquid){
+        if(targetCell instanceof Liquid || targetCell instanceof Gas){
             this.switchWith(this.x+dir,this.y+1)
         }
         if(targetCell instanceof Solid && dir !== -1){
@@ -522,7 +557,7 @@ class Player {
     }
 }
 
-var player = new Player(200, 0)
+var player = new Player(200, 100)
 
 
 window.onload = init;
