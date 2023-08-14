@@ -107,13 +107,13 @@ async function update() {
     requestAnimationFrame(update);
     renderC.imageSmoothingEnabled = false;
 
-    c.clearRect(0, 0, canvas.width, canvas.height);    
-
+    c.clearRect(0, 0, canvas.width, canvas.height); 
+    
     if(mouse.down){
         buttonPress();
     }
 
-
+    await updateChunks();
     render();
 
     c.lineWidth = 1;
@@ -129,14 +129,18 @@ async function update() {
 
 }
 
+async function updateChunks(){
+    Object.entries(chunks).filter(e => {if(e[1].shouldStep){return true}}).forEach(async e => {
+        e[1].update(e[0]);
+    });
+    Object.entries(chunks).forEach(e => {
+        e[1].shiftShouldStepAndReset()
+    });
+}
+
 async function render() {
-    for (let x = 0 - Math.floor(player.x) - canvas.width / 4, n = canvas.width/2 - player.x + canvas.width/2; x < n; x++) {
-        for (let y = 0 - Math.floor(player.y) - canvas.height / 4, g = canvas.height/2 - player.y + canvas.height/2; y < g; y++) {
-            if(getElementAtCell(x,y) instanceof MovableSolid || getElementAtCell(x,y) instanceof Liquid || getElementAtCell(x,y) instanceof Gas){
-                getElementAtCell(x,y).step()
-            }
-        }
-    }
+    
+    
     for (let x = -Math.round(player.x / chunkSize) - 1, n = Math.round(canvas.width / chunkSize) - Math.round(player.x / chunkSize) + 1; x < n; x++) {
         for (let y = -Math.round(player.y / chunkSize) - 1, g = Math.round(canvas.height / chunkSize) - Math.round(player.y / chunkSize) + 1; y < g; y++) {
             if (chunks[x + "," + y]) {
@@ -181,7 +185,9 @@ function buttonPress(){
             chunks[Math.floor(x / chunkSize) + "," + Math.floor(y / chunkSize)].context.clearRect(tmpX, tmpY, 1, 1);
         }
         if(Math.abs(currentTool) % 4 !== 3){
-            elements[x + "," + y].draw()
+            elements[x + "," + y].draw();
+            chunks[Math.floor(x / chunkSize) + "," + Math.floor(y / chunkSize)].shouldStepNextFrame = true;
+
         }
     }
 
@@ -211,6 +217,34 @@ var elements = [];
 
 var chunks = [];
 
+class Chunk{
+    constructor(){
+        this.canvas = document.createElement("canvas");
+        this.canvas.width = chunkSize;
+        this.canvas.height = chunkSize;
+        this.context = this.canvas.getContext("2d");
+        this.shouldStep = true;
+        this.shouldStepNextFrame = false;
+    }
+    shiftShouldStepAndReset(){
+        this.shouldStep = this.shouldStepNextFrame;
+        this.shouldStepNextFrame = false;
+    }
+    async update(cords){
+        let coords = cords.split(",")
+        let chunkX = JSON.parse(coords[0]);
+        let chunkY = JSON.parse(coords[1]);
+
+        for(let y = chunkY*chunkSize; y < chunkY*chunkSize+chunkSize; y++){
+            for(let x = chunkX*chunkSize; x < chunkX*chunkSize+chunkSize; x++){
+                if(elements[x + "," + y]?.step){
+                    await elements[x + "," + y]?.step()
+                }
+            }
+        }
+    }
+}
+
 
 class Element{
     constructor(x,y,color){
@@ -228,10 +262,7 @@ class Element{
     }
     async draw() {
         if (!chunks[Math.floor(this.x / chunkSize) + "," + Math.floor(this.y / chunkSize)]) {
-            chunks[Math.floor(this.x / chunkSize) + "," + Math.floor(this.y / chunkSize)] = { canvas: document.createElement("canvas") };
-            chunks[Math.floor(this.x / chunkSize) + "," + Math.floor(this.y / chunkSize)].canvas.width = chunkSize;
-            chunks[Math.floor(this.x / chunkSize) + "," + Math.floor(this.y / chunkSize)].canvas.height = chunkSize;
-            chunks[Math.floor(this.x / chunkSize) + "," + Math.floor(this.y / chunkSize)].context = chunks[Math.floor(this.x / chunkSize) + "," + Math.floor(this.y / chunkSize)].canvas.getContext("2d")
+            chunks[Math.floor(this.x / chunkSize) + "," + Math.floor(this.y / chunkSize)] = new Chunk();
         }
         let tmpX = this.x >= 0 ? this.x % chunkSize : (chunkSize + this.x % (chunkSize))
         let tmpY = this.y >= 0 ? this.y % chunkSize : (chunkSize + this.y % (chunkSize))
@@ -246,13 +277,13 @@ class Element{
         tmpX = tmpX == chunkSize ? 0 : tmpX;
         tmpY = tmpY == chunkSize ? 0 : tmpY;
         chunks[Math.floor(this.x / chunkSize) + "," + Math.floor(this.y / chunkSize)].context.clearRect(tmpX, tmpY, 1, 1);
-
         elements[this.x + "," + this.y] = undefined
 
         this.x = x;
         this.y = y;
         elements[x + "," + y] = this;
         this.draw();
+        this.activateChunks(x,y)
     }
     async switchWith(x,y){
         let tmp = elements[x+ "," + y] 
@@ -268,8 +299,33 @@ class Element{
 
         this.draw();
         tmp.draw();
-        
-
+    }
+    activateChunks(x,y){
+        chunks[Math.floor(x / chunkSize) + "," + Math.floor(y / chunkSize)].shouldStepNextFrame = true;
+        if(x % chunkSize == 0){
+            if(!chunks[(Math.floor(x / chunkSize)-1) + "," + Math.floor(y / chunkSize)]){
+                chunks[(Math.floor(x / chunkSize)-1) + "," + Math.floor(y / chunkSize)] = new Chunk()
+            }
+            chunks[(Math.floor(x / chunkSize)-1) + "," + Math.floor(y / chunkSize)].shouldStepNextFrame = true;
+        }
+        if(y % chunkSize == 0){
+            if(!chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize)-1)]){
+                chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize)-1)] = new Chunk()
+            }
+            chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize)-1)].shouldStepNextFrame = true;
+        }
+        if(x % chunkSize == chunkSize-1){
+            if(!chunks[(Math.floor(x / chunkSize)+1) + "," + Math.floor(y / chunkSize)]){
+                chunks[(Math.floor(x / chunkSize)+1) + "," + Math.floor(y / chunkSize)] = new Chunk()
+            }
+            chunks[(Math.floor(x / chunkSize)+1) + "," + Math.floor(y / chunkSize)].shouldStepNextFrame = true;
+        }
+        if(y % chunkSize == chunkSize-1){
+            if(!chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize)+1)]){
+                chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize)+1)] = new Chunk()
+            }
+            chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize)+1)].shouldStepNextFrame = true;
+        }
     }
 }
 
@@ -283,7 +339,6 @@ class Liquid extends Element{
         this.dispersionRate = dispersionRate
     }
     async step(){
-        await sleep()
         let targetCell = getElementAtCell(this.x,this.y+1);
         
         if(targetCell == undefined){
@@ -294,7 +349,6 @@ class Liquid extends Element{
         }
     }
     async lookHorizontally(dir){
-        await sleep()
         let maxDir = 0;
         for(let i = 1; i < this.dispersionRate+1; i++){
             let targetCell1 = getElementAtCell(this.x+dir*i,this.y);
@@ -322,7 +376,6 @@ class Gas extends Element{
         this.dispersionRate = dispersionRate
     }
     async step(){
-        await sleep()
         let targetCell = getElementAtCell(this.x,this.y-1);
         
         if(targetCell == undefined){
@@ -333,7 +386,6 @@ class Gas extends Element{
         }
     }
     async lookHorizontally(dir){
-        await sleep()
         let maxDir = 0;
         for(let i = 1; i < this.dispersionRate+1; i++){
             let targetCell1 = getElementAtCell(this.x+dir*i,this.y);
@@ -358,11 +410,10 @@ class Gas extends Element{
 
 class MovableSolid extends Solid{
     async step(){
-        await sleep()
         let targetCell = getElementAtCell(this.x,this.y+1);
         
         if(targetCell == undefined){
-            this.moveTo(this.x,this.y+1)
+            await this.moveTo(this.x,this.y+1)
         }
         if(targetCell instanceof Liquid || targetCell instanceof Gas){
             this.switchWith(this.x,this.y+1)
@@ -375,7 +426,7 @@ class MovableSolid extends Solid{
         let targetCell = getElementAtCell(this.x+dir,this.y+1);
 
         if(targetCell == undefined){
-            this.moveTo(this.x+dir,this.y+1)
+            await this.moveTo(this.x+dir,this.y+1)
         }
         if(targetCell instanceof Liquid || targetCell instanceof Gas){
             this.switchWith(this.x+dir,this.y+1)
