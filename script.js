@@ -113,7 +113,7 @@ async function update() {
         buttonPress();
     }
 
-    await updateChunks();
+    updateChunks();
     render();
 
     c.lineWidth = 1;
@@ -234,11 +234,20 @@ class Chunk{
         let coords = cords.split(",")
         let chunkX = JSON.parse(coords[0]);
         let chunkY = JSON.parse(coords[1]);
+        c.fillStyle = "lightgray"
+        c.fillRect(Math.floor(chunkX*chunkSize + player.x),Math.floor(chunkY*chunkSize + player.y),chunkSize,chunkSize)
 
+        for(let y = chunkY*chunkSize+chunkSize-1; y >= chunkY*chunkSize; y--){
+            for(let x = chunkX*chunkSize; x < chunkX*chunkSize+chunkSize; x++){
+                if(elements[x + "," + y]?.step && !(elements[x + "," + y] instanceof Gas)){
+                    elements[x + "," + y]?.step()
+                }
+            }
+        }
         for(let y = chunkY*chunkSize; y < chunkY*chunkSize+chunkSize; y++){
             for(let x = chunkX*chunkSize; x < chunkX*chunkSize+chunkSize; x++){
-                if(elements[x + "," + y]?.step){
-                    await elements[x + "," + y]?.step()
+                if(elements[x + "," + y]?.step && (elements[x + "," + y] instanceof Gas)){
+                    elements[x + "," + y]?.step()
                 }
             }
         }
@@ -299,28 +308,31 @@ class Element{
 
         this.draw();
         tmp.draw();
+        this.activateChunks(x,y)
+
     }
     activateChunks(x,y){
         chunks[Math.floor(x / chunkSize) + "," + Math.floor(y / chunkSize)].shouldStepNextFrame = true;
-        if(x % chunkSize == 0){
+        if(x % chunkSize < 2 && x % chunkSize > 0 || x % chunkSize > -2 && x % chunkSize < 0){
             if(!chunks[(Math.floor(x / chunkSize)-1) + "," + Math.floor(y / chunkSize)]){
                 chunks[(Math.floor(x / chunkSize)-1) + "," + Math.floor(y / chunkSize)] = new Chunk()
             }
             chunks[(Math.floor(x / chunkSize)-1) + "," + Math.floor(y / chunkSize)].shouldStepNextFrame = true;
         }
-        if(y % chunkSize == 0){
+        if(y % chunkSize < 2 && y % chunkSize > 0 || y % chunkSize > -2 && y % chunkSize < 0){
             if(!chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize)-1)]){
                 chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize)-1)] = new Chunk()
             }
             chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize)-1)].shouldStepNextFrame = true;
         }
-        if(x % chunkSize == chunkSize-1){
+        if(x % chunkSize > chunkSize-5 || x % chunkSize < -chunkSize+5){
             if(!chunks[(Math.floor(x / chunkSize)+1) + "," + Math.floor(y / chunkSize)]){
                 chunks[(Math.floor(x / chunkSize)+1) + "," + Math.floor(y / chunkSize)] = new Chunk()
             }
             chunks[(Math.floor(x / chunkSize)+1) + "," + Math.floor(y / chunkSize)].shouldStepNextFrame = true;
+            c.fillStyle = "black"
         }
-        if(y % chunkSize == chunkSize-1){
+        if(y % chunkSize > chunkSize-5 || y % chunkSize < -chunkSize+5){
             if(!chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize)+1)]){
                 chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize)+1)] = new Chunk()
             }
@@ -413,26 +425,26 @@ class MovableSolid extends Solid{
         let targetCell = getElementAtCell(this.x,this.y+1);
         
         if(targetCell == undefined){
-            await this.moveTo(this.x,this.y+1)
+            this.moveTo(this.x,this.y+1)
         }
         if(targetCell instanceof Liquid || targetCell instanceof Gas){
             this.switchWith(this.x,this.y+1)
         }
         if(targetCell instanceof Solid){
-            this.lookDiagonally(1);
+            this.lookDiagonally(Math.floor(Math.random() * 2) || -1,true);
         }
     }
-    async lookDiagonally(dir){
+    async lookDiagonally(dir,first){
         let targetCell = getElementAtCell(this.x+dir,this.y+1);
 
         if(targetCell == undefined){
-            await this.moveTo(this.x+dir,this.y+1)
+            this.moveTo(this.x+dir,this.y+1)
         }
         if(targetCell instanceof Liquid || targetCell instanceof Gas){
             this.switchWith(this.x+dir,this.y+1)
         }
-        if(targetCell instanceof Solid && dir !== -1){
-            this.lookDiagonally(-1);
+        if(targetCell instanceof Solid && first == true){
+            this.lookDiagonally(dir,false);
         }
     }
 }
