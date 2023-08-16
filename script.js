@@ -13,7 +13,7 @@ document.body.appendChild(renderCanvas)
 
 var scale;
 
-var mouseSize = 5;
+var mouseSize = 10;
 var currentTool = 0;
 
 async function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)) }
@@ -194,10 +194,10 @@ function buttonPress(){
 }
 
 function testGenerate() {
-    for (let x = -150; x < 150; x++) {
-        for (let y = -80; y < 80; y++) {
-            let perlin = 0//getPerlinNoise(x, y, 20, 100)
-            if (perlin > 0.5 || Math.abs(x) > 100 || Math.abs(y) > 40) {
+    for (let x = -500; x < 500; x++) {
+        for (let y = -500; y < 500; y++) {
+            let perlin = getPerlinNoise(x, y, 20, 100)
+            if (perlin > 0.5 || Math.abs(x) > 450 || Math.abs(y) > 450) {
                 elements[x + "," + y] = new ImmovableSolid(x,y,"brown")
                 elements[x + "," + y].draw()
             }
@@ -237,8 +237,8 @@ class Chunk{
         c.fillStyle = "lightgray"
         c.fillRect(Math.floor(chunkX*chunkSize + player.x),Math.floor(chunkY*chunkSize + player.y),chunkSize,chunkSize)
 
-        for(let y = chunkY*chunkSize+chunkSize-1; y >= chunkY*chunkSize; y--){
-            for(let x = chunkX*chunkSize; x < chunkX*chunkSize+chunkSize; x++){
+        for(let y = chunkY*chunkSize+chunkSize; y >= chunkY*chunkSize; y--){
+            for(let x = chunkX*chunkSize-1; x < chunkX*chunkSize+chunkSize+1; x++){
                 if(elements[x + "," + y]?.step && !(elements[x + "," + y] instanceof Gas)){
                     elements[x + "," + y]?.step()
                 }
@@ -287,12 +287,13 @@ class Element{
         tmpY = tmpY == chunkSize ? 0 : tmpY;
         chunks[Math.floor(this.x / chunkSize) + "," + Math.floor(this.y / chunkSize)].context.clearRect(tmpX, tmpY, 1, 1);
         elements[this.x + "," + this.y] = undefined
-
+        let oldX = this.x;
+        let oldY = this.y;
         this.x = x;
         this.y = y;
         elements[x + "," + y] = this;
         this.draw();
-        this.activateChunks(x,y)
+        this.activateChunks(x,y,oldX,oldY)
     }
     async switchWith(x,y){
         let tmp = elements[x+ "," + y] 
@@ -308,10 +309,10 @@ class Element{
 
         this.draw();
         tmp.draw();
-        this.activateChunks(x,y)
+        this.activateChunks(x,y,tmp.x,tmp.y)
 
     }
-    activateChunks(x,y){
+    activateChunks(x,y,x2,y2){
         chunks[Math.floor(x / chunkSize) + "," + Math.floor(y / chunkSize)].shouldStepNextFrame = true;
         if(x % chunkSize < 2 && x % chunkSize > 0 || x % chunkSize > -2 && x % chunkSize < 0){
             if(!chunks[(Math.floor(x / chunkSize)-1) + "," + Math.floor(y / chunkSize)]){
@@ -338,7 +339,11 @@ class Element{
             }
             chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize)+1)].shouldStepNextFrame = true;
         }
+        if(x2 && y2){
+            this.activateChunks(x2,y2)
+        }
     }
+    
 }
 
 class Solid extends Element{
@@ -444,7 +449,7 @@ class MovableSolid extends Solid{
             this.switchWith(this.x+dir,this.y+1)
         }
         if(targetCell instanceof Solid && first == true){
-            this.lookDiagonally(dir,false);
+            this.lookDiagonally(-dir,false);
         }
     }
 }
@@ -618,6 +623,17 @@ class Player {
 
         return v;
     }
+}
+
+function getPerlinNoise(x, y, perlinSeed, resolution) {
+    noise.seed(perlinSeed);
+
+    var value = noise.simplex2(x / resolution, y / resolution);
+    value++;
+    value /= 2;
+
+    return value;
+
 }
 
 var player = new Player(200, 100)
