@@ -3,8 +3,8 @@ var c = canvas.getContext("2d");
 canvas.style.zIndex = "1"
 document.body.appendChild(canvas)
 
-canvas.width = 160*2;
-canvas.height = 90*2;
+canvas.width = 160 * 2;
+canvas.height = 90 * 2;
 
 var renderCanvas = document.createElement("canvas");
 var renderC = renderCanvas.getContext("2d");
@@ -64,7 +64,7 @@ renderCanvas.addEventListener("mousemove", function (e) {
 })
 
 renderCanvas.addEventListener("mousedown", function (e) {
-    mouse.down = true;    
+    mouse.down = true;
 })
 
 window.addEventListener("mouseup", e => {
@@ -107,9 +107,9 @@ async function update() {
     requestAnimationFrame(update);
     renderC.imageSmoothingEnabled = false;
 
-    c.clearRect(0, 0, canvas.width, canvas.height); 
-    
-    if(mouse.down){
+    c.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (mouse.down) {
         buttonPress();
     }
 
@@ -118,7 +118,7 @@ async function update() {
 
     c.lineWidth = 1;
     c.strokeStyle = "black";
-    c.strokeRect(mouse.x- mouseSize/2,mouse.y - mouseSize/2,mouseSize,mouseSize)
+    c.strokeRect(mouse.x - mouseSize / 2, mouse.y - mouseSize / 2, mouseSize, mouseSize)
 
     renderC.fillStyle = "white"
     renderC.fillRect(0, 0, renderCanvas.width, renderCanvas.height);
@@ -129,8 +129,8 @@ async function update() {
 
 }
 
-async function updateChunks(){
-    Object.entries(chunks).filter(e => {if(e[1].shouldStep){return true}}).forEach(async e => {
+async function updateChunks() {
+    Object.entries(chunks).filter(e => { if (e[1].shouldStep) { return true } }).forEach(async e => {
         e[1].update(e[0]);
     });
     Object.entries(chunks).forEach(e => {
@@ -139,8 +139,8 @@ async function updateChunks(){
 }
 
 async function render() {
-    
-    
+
+
     for (let x = -Math.round(player.x / chunkSize) - 1, n = Math.round(canvas.width / chunkSize) - Math.round(player.x / chunkSize) + 1; x < n; x++) {
         for (let y = -Math.round(player.y / chunkSize) - 1, g = Math.round(canvas.height / chunkSize) - Math.round(player.y / chunkSize) + 1; y < g; y++) {
             if (chunks[x + "," + y]) {
@@ -166,17 +166,17 @@ function refreshLoop() {
     });
 }
 
-function buttonPress(){
+function buttonPress() {
     for (let i = 0; i < Math.pow(mouseSize, 2); i++) {
         let x = mouse.x + Math.floor(i / mouseSize) - Math.floor(mouseSize / 2 + player.x);
         let y = mouse.y + i % mouseSize - Math.floor(mouseSize / 2 + player.y)
-        if(Math.abs(currentTool) % 4 == 0){
-            elements[x + "," + y] = new MovableSolid(x,y,"#c2b280")
-        }else if(Math.abs(currentTool) % 4 == 1){
-            elements[x + "," + y] = new Liquid(x,y,"blue",5)
-        }else if(Math.abs(currentTool) % 4 == 2){
-            elements[x + "," + y] = new Gas(x,y,"gray",5)
-        }else if(Math.abs(currentTool) % 4 == 3){
+        if (Math.abs(currentTool) % 4 == 0) {
+            elements[x + "," + y] = new MovableSolid(x, y, "#c2b280")
+        } else if (Math.abs(currentTool) % 4 == 1) {
+            elements[x + "," + y] = new Liquid(x, y, "blue", 5)
+        } else if (Math.abs(currentTool) % 4 == 2) {
+            elements[x + "," + y] = new Gas(x, y, "gray", 5)
+        } else if (Math.abs(currentTool) % 4 == 3) {
             elements[x + "," + y] = undefined;
             let tmpX = x >= 0 ? x % chunkSize : (chunkSize + x % (chunkSize));
             let tmpY = y >= 0 ? y % chunkSize : (chunkSize + y % (chunkSize));
@@ -184,10 +184,9 @@ function buttonPress(){
             tmpY = tmpY == chunkSize ? 0 : tmpY;
             chunks[Math.floor(x / chunkSize) + "," + Math.floor(y / chunkSize)].context.clearRect(tmpX, tmpY, 1, 1);
         }
-        if(Math.abs(currentTool) % 4 !== 3){
+        if (Math.abs(currentTool) % 4 !== 3) {
             elements[x + "," + y].draw();
             chunks[Math.floor(x / chunkSize) + "," + Math.floor(y / chunkSize)].shouldStepNextFrame = true;
-
         }
     }
 
@@ -198,7 +197,7 @@ function testGenerate() {
         for (let y = -500; y < 500; y++) {
             let perlin = getPerlinNoise(x, y, 20, 100)
             if (perlin > 0.5 || Math.abs(x) > 450 || Math.abs(y) > 450) {
-                elements[x + "," + y] = new ImmovableSolid(x,y,"brown")
+                elements[x + "," + y] = new ImmovableSolid(x, y, "brown")
                 elements[x + "," + y].draw()
             }
         }
@@ -217,8 +216,8 @@ var elements = [];
 
 var chunks = [];
 
-class Chunk{
-    constructor(){
+class Chunk {
+    constructor() {
         this.canvas = document.createElement("canvas");
         this.canvas.width = chunkSize;
         this.canvas.height = chunkSize;
@@ -226,28 +225,38 @@ class Chunk{
         this.shouldStep = true;
         this.shouldStepNextFrame = false;
     }
-    shiftShouldStepAndReset(){
+    shiftShouldStepAndReset() {
         this.shouldStep = this.shouldStepNextFrame;
         this.shouldStepNextFrame = false;
     }
-    async update(cords){
+    async update(cords) {
         let coords = cords.split(",")
         let chunkX = JSON.parse(coords[0]);
         let chunkY = JSON.parse(coords[1]);
         c.fillStyle = "lightgray"
-        c.fillRect(Math.floor(chunkX*chunkSize + player.x),Math.floor(chunkY*chunkSize + player.y),chunkSize,chunkSize)
+        c.fillRect(Math.floor(chunkX * chunkSize + player.x), Math.floor(chunkY * chunkSize + player.y), chunkSize, chunkSize)
 
-        for(let y = chunkY*chunkSize+chunkSize; y >= chunkY*chunkSize; y--){
-            for(let x = chunkX*chunkSize-1; x < chunkX*chunkSize+chunkSize+1; x++){
-                if(elements[x + "," + y]?.step && !(elements[x + "," + y] instanceof Gas)){
-                    elements[x + "," + y]?.step()
+        for (let y = chunkY * chunkSize + chunkSize; y >= chunkY * chunkSize; y--) {
+            for (let x = chunkX * chunkSize + 1; x < chunkX * chunkSize + chunkSize; x += 2) {
+                if (elements[x + "," + y]?.step && !(elements[x + "," + y] instanceof Gas)) {
+                    elements[x + "," + y]?.step();
+                }
+            }
+            for (let x = chunkX * chunkSize; x < chunkX * chunkSize + chunkSize; x += 2) {
+                if (elements[x + "," + y]?.step && !(elements[x + "," + y] instanceof Gas)) {
+                    elements[x + "," + y]?.step();
                 }
             }
         }
-        for(let y = chunkY*chunkSize; y < chunkY*chunkSize+chunkSize; y++){
-            for(let x = chunkX*chunkSize; x < chunkX*chunkSize+chunkSize; x++){
-                if(elements[x + "," + y]?.step && (elements[x + "," + y] instanceof Gas)){
-                    elements[x + "," + y]?.step()
+        for (let y = chunkY * chunkSize; y < chunkY * chunkSize + chunkSize; y++) {
+            for (let x = chunkX * chunkSize + 1; x < chunkX * chunkSize + chunkSize; x += 2) {
+                if (elements[x + "," + y]?.step && (elements[x + "," + y] instanceof Gas)) {
+                    elements[x + "," + y]?.step();
+                }
+            }
+            for (let x = chunkX * chunkSize; x < chunkX * chunkSize + chunkSize; x += 2) {
+                if (elements[x + "," + y]?.step && (elements[x + "," + y] instanceof Gas)) {
+                    elements[x + "," + y]?.step();
                 }
             }
         }
@@ -255,14 +264,14 @@ class Chunk{
 }
 
 
-class Element{
-    constructor(x,y,color){
+class Element {
+    constructor(x, y, color) {
         this.x = x;
         this.y = y;
         this.color = color;
         this.velocity = {
-            x:1,
-            y:1
+            x: 1,
+            y: 1
         };
 
         if (this.color === undefined) {
@@ -280,7 +289,7 @@ class Element{
         chunks[Math.floor(this.x / chunkSize) + "," + Math.floor(this.y / chunkSize)].context.fillStyle = this.color;
         chunks[Math.floor(this.x / chunkSize) + "," + Math.floor(this.y / chunkSize)].context.fillRect(tmpX, tmpY, 1, 1);
     }
-    async moveTo(x,y){
+    async moveTo(x, y) {
         let tmpX = this.x >= 0 ? this.x % chunkSize : (chunkSize + this.x % (chunkSize));
         let tmpY = this.y >= 0 ? this.y % chunkSize : (chunkSize + this.y % (chunkSize));
         tmpX = tmpX == chunkSize ? 0 : tmpX;
@@ -293,10 +302,10 @@ class Element{
         this.y = y;
         elements[x + "," + y] = this;
         this.draw();
-        this.activateChunks(x,y,oldX,oldY)
+        this.activateChunks(x, y, oldX, oldY)
     }
-    async switchWith(x,y){
-        let tmp = elements[x+ "," + y] 
+    async switchWith(x, y) {
+        let tmp = elements[x + "," + y]
 
         tmp.x = this.x;
         tmp.y = this.y;
@@ -309,155 +318,155 @@ class Element{
 
         this.draw();
         tmp.draw();
-        this.activateChunks(x,y,tmp.x,tmp.y)
+        this.activateChunks(x, y, tmp.x, tmp.y)
 
     }
-    activateChunks(x,y,x2,y2){
+    activateChunks(x, y, x2, y2) {
         chunks[Math.floor(x / chunkSize) + "," + Math.floor(y / chunkSize)].shouldStepNextFrame = true;
-        if(x % chunkSize < 2 && x % chunkSize > 0 || x % chunkSize > -2 && x % chunkSize < 0){
-            if(!chunks[(Math.floor(x / chunkSize)-1) + "," + Math.floor(y / chunkSize)]){
-                chunks[(Math.floor(x / chunkSize)-1) + "," + Math.floor(y / chunkSize)] = new Chunk()
+        if (x % chunkSize > chunkSize - 2 || x % chunkSize < -chunkSize + 2) {
+            if (!chunks[(Math.floor(x / chunkSize) - 1) + "," + Math.floor(y / chunkSize)]) {
+                chunks[(Math.floor(x / chunkSize) - 1) + "," + Math.floor(y / chunkSize)] = new Chunk()
             }
-            chunks[(Math.floor(x / chunkSize)-1) + "," + Math.floor(y / chunkSize)].shouldStepNextFrame = true;
+            chunks[(Math.floor(x / chunkSize) - 1) + "," + Math.floor(y / chunkSize)].shouldStepNextFrame = true;
         }
-        if(y % chunkSize < 2 && y % chunkSize > 0 || y % chunkSize > -2 && y % chunkSize < 0){
-            if(!chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize)-1)]){
-                chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize)-1)] = new Chunk()
+        if (y % chunkSize > chunkSize - 2 || y % chunkSize < -chunkSize + 2) {
+            if (!chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize) - 1)]) {
+                chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize) - 1)] = new Chunk()
             }
-            chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize)-1)].shouldStepNextFrame = true;
+            chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize) - 1)].shouldStepNextFrame = true;
         }
-        if(x % chunkSize > chunkSize-5 || x % chunkSize < -chunkSize+5){
-            if(!chunks[(Math.floor(x / chunkSize)+1) + "," + Math.floor(y / chunkSize)]){
-                chunks[(Math.floor(x / chunkSize)+1) + "," + Math.floor(y / chunkSize)] = new Chunk()
+        if (x % chunkSize < 2 && x % chunkSize > 0 || x % chunkSize > -2 && x % chunkSize < 0) {
+            if (!chunks[(Math.floor(x / chunkSize) + 1) + "," + Math.floor(y / chunkSize)]) {
+                chunks[(Math.floor(x / chunkSize) + 1) + "," + Math.floor(y / chunkSize)] = new Chunk()
             }
-            chunks[(Math.floor(x / chunkSize)+1) + "," + Math.floor(y / chunkSize)].shouldStepNextFrame = true;
+            chunks[(Math.floor(x / chunkSize) + 1) + "," + Math.floor(y / chunkSize)].shouldStepNextFrame = true;
             c.fillStyle = "black"
         }
-        if(y % chunkSize > chunkSize-5 || y % chunkSize < -chunkSize+5){
-            if(!chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize)+1)]){
-                chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize)+1)] = new Chunk()
+        if (y % chunkSize < 2 && y % chunkSize > 0 || y % chunkSize > -2 && y % chunkSize < 0) {
+            if (!chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize) + 1)]) {
+                chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize) + 1)] = new Chunk()
             }
-            chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize)+1)].shouldStepNextFrame = true;
+            chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize) + 1)].shouldStepNextFrame = true;
         }
-        if(x2 && y2){
-            this.activateChunks(x2,y2)
+        if (x2 && y2) {
+            this.activateChunks(x2, y2)
         }
     }
-    
+
 }
 
-class Solid extends Element{
-    
+class Solid extends Element {
+
 }
 
-class Liquid extends Element{    
-    constructor(x,y,color,dispersionRate){
-        super(x,y,color);
+class Liquid extends Element {
+    constructor(x, y, color, dispersionRate) {
+        super(x, y, color);
         this.dispersionRate = dispersionRate
     }
-    async step(){
-        let targetCell = getElementAtCell(this.x,this.y+1);
-        
-        if(targetCell == undefined){
-            this.moveTo(this.x,this.y+1)
+    async step() {
+        let targetCell = getElementAtCell(this.x, this.y + 1);
+
+        if (targetCell == undefined) {
+            this.moveTo(this.x, this.y + 1)
         }
-        if(targetCell !== undefined){
+        if (targetCell !== undefined) {
             this.lookHorizontally(Math.random() > 0.5 ? -1 : 1);
         }
     }
-    async lookHorizontally(dir){
+    async lookHorizontally(dir) {
         let maxDir = 0;
-        for(let i = 1; i < this.dispersionRate+1; i++){
-            let targetCell1 = getElementAtCell(this.x+dir*i,this.y);
-            let targetCell2 = getElementAtCell(this.x+dir*-i,this.y);
-            if(targetCell1 == undefined){
-                maxDir = i*dir
-            }else if(targetCell2 == undefined){
-                maxDir = i*dir*-1
-            }else{
+        for (let i = 1; i < this.dispersionRate + 1; i++) {
+            let targetCell1 = getElementAtCell(this.x + dir * i, this.y);
+            let targetCell2 = getElementAtCell(this.x + dir * -i, this.y);
+            if (targetCell1 == undefined) {
+                maxDir = i * dir
+            } else if (targetCell2 == undefined) {
+                maxDir = i * dir * -1
+            } else {
                 i = undefined;
             }
         }
-        if(maxDir !== 0){
-            if(maxDir * dir < 0){
+        if (maxDir !== 0) {
+            if (maxDir * dir < 0) {
                 this.lookHorizontally(-dir)
-            }else{
-                this.moveTo(this.x+maxDir,this.y)
+            } else {
+                this.moveTo(this.x + maxDir, this.y)
             }
         }
     }
 }
-class Gas extends Element{
-    constructor(x,y,color,dispersionRate){
-        super(x,y,color);
+class Gas extends Element {
+    constructor(x, y, color, dispersionRate) {
+        super(x, y, color);
         this.dispersionRate = dispersionRate
     }
-    async step(){
-        let targetCell = getElementAtCell(this.x,this.y-1);
-        
-        if(targetCell == undefined){
-            this.moveTo(this.x,this.y-1)
+    async step() {
+        let targetCell = getElementAtCell(this.x, this.y - 1);
+
+        if (targetCell == undefined) {
+            this.moveTo(this.x, this.y - 1)
         }
-        if(targetCell !== undefined){
+        if (targetCell !== undefined) {
             this.lookHorizontally(Math.random() > 0.5 ? -1 : 1);
         }
     }
-    async lookHorizontally(dir){
+    async lookHorizontally(dir) {
         let maxDir = 0;
-        for(let i = 1; i < this.dispersionRate+1; i++){
-            let targetCell1 = getElementAtCell(this.x+dir*i,this.y);
-            let targetCell2 = getElementAtCell(this.x+dir*-i,this.y);
-            if(targetCell1 == undefined){
-                maxDir = i*dir
-            }else if(targetCell2 == undefined){
-                maxDir = i*dir*-1
-            }else{
+        for (let i = 1; i < this.dispersionRate + 1; i++) {
+            let targetCell1 = getElementAtCell(this.x + dir * i, this.y);
+            let targetCell2 = getElementAtCell(this.x + dir * -i, this.y);
+            if (targetCell1 == undefined) {
+                maxDir = i * dir
+            } else if (targetCell2 == undefined) {
+                maxDir = i * dir * -1
+            } else {
                 i = undefined;
             }
         }
-        if(maxDir !== 0){
-            if(maxDir * dir < 0){
+        if (maxDir !== 0) {
+            if (maxDir * dir < 0) {
                 this.lookHorizontally(-dir)
-            }else{
-                this.moveTo(this.x+maxDir,this.y)
+            } else {
+                this.moveTo(this.x + maxDir, this.y)
             }
         }
     }
 }
 
-class MovableSolid extends Solid{
-    async step(){
-        let targetCell = getElementAtCell(this.x,this.y+1);
-        
-        if(targetCell == undefined){
-            this.moveTo(this.x,this.y+1)
+class MovableSolid extends Solid {
+    async step() {
+        let targetCell = getElementAtCell(this.x, this.y + 1);
+
+        if (targetCell == undefined) {
+            this.moveTo(this.x, this.y + 1)
         }
-        if(targetCell instanceof Liquid || targetCell instanceof Gas){
-            this.switchWith(this.x,this.y+1)
+        if (targetCell instanceof Liquid || targetCell instanceof Gas) {
+            this.switchWith(this.x, this.y + 1)
         }
-        if(targetCell instanceof Solid){
-            this.lookDiagonally(Math.floor(Math.random() * 2) || -1,true);
+        if (targetCell instanceof Solid) {
+            this.lookDiagonally(Math.floor(Math.random() * 2) || -1, true);
         }
     }
-    async lookDiagonally(dir,first){
-        let targetCell = getElementAtCell(this.x+dir,this.y+1);
+    async lookDiagonally(dir, first) {
+        let targetCell = getElementAtCell(this.x + dir, this.y + 1);
 
-        if(targetCell == undefined){
-            this.moveTo(this.x+dir,this.y+1)
+        if (targetCell == undefined) {
+            this.moveTo(this.x + dir, this.y + 1)
         }
-        if(targetCell instanceof Liquid || targetCell instanceof Gas){
-            this.switchWith(this.x+dir,this.y+1)
+        if (targetCell instanceof Liquid || targetCell instanceof Gas) {
+            this.switchWith(this.x + dir, this.y + 1)
         }
-        if(targetCell instanceof Solid && first == true){
-            this.lookDiagonally(-dir,false);
+        if (targetCell instanceof Solid && first == true) {
+            this.lookDiagonally(-dir, false);
         }
     }
 }
-class ImmovableSolid extends Solid{
+class ImmovableSolid extends Solid {
 
 }
 
-function getElementAtCell(x,y){
+function getElementAtCell(x, y) {
     return elements[x + "," + y]
 }
 
