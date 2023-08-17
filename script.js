@@ -28,7 +28,6 @@ function fixCanvas() {
         renderCanvas.width = window.innerWidth;
         renderCanvas.height = window.innerWidth * 9 / 16;
         scale = renderCanvas.height / canvas.height
-
     }
 }
 
@@ -171,18 +170,27 @@ function buttonPress() {
         let x = mouse.x + Math.floor(i / mouseSize) - Math.floor(mouseSize / 2 + player.x);
         let y = mouse.y + i % mouseSize - Math.floor(mouseSize / 2 + player.y)
         if (Math.abs(currentTool) % 4 == 0) {
-            elements[x + "," + y] = new MovableSolid(x, y, "#c2b280")
+            if (elements[x + "," + y] == undefined) {
+                elements[x + "," + y] = new MovableSolid(x, y, "#c2b280")
+            }
         } else if (Math.abs(currentTool) % 4 == 1) {
-            elements[x + "," + y] = new Liquid(x, y, "blue", 5)
+            if (elements[x + "," + y] == undefined) {
+                elements[x + "," + y] = new Liquid(x, y, "blue", 5)
+            }
         } else if (Math.abs(currentTool) % 4 == 2) {
-            elements[x + "," + y] = new Gas(x, y, "gray", 5)
+            if (elements[x + "," + y] == undefined) {
+                elements[x + "," + y] = new Gas(x, y, "gray", 5)
+            }
         } else if (Math.abs(currentTool) % 4 == 3) {
-            elements[x + "," + y] = undefined;
-            let tmpX = x >= 0 ? x % chunkSize : (chunkSize + x % (chunkSize));
-            let tmpY = y >= 0 ? y % chunkSize : (chunkSize + y % (chunkSize));
-            tmpX = tmpX == chunkSize ? 0 : tmpX;
-            tmpY = tmpY == chunkSize ? 0 : tmpY;
-            chunks[Math.floor(x / chunkSize) + "," + Math.floor(y / chunkSize)].context.clearRect(tmpX, tmpY, 1, 1);
+            if (!(elements[x + "," + y] instanceof ImmovableSolid)) {
+                elements[x + "," + y]?.activateChunks(x, y)
+                elements[x + "," + y] = undefined;
+                let tmpX = x >= 0 ? x % chunkSize : (chunkSize + x % (chunkSize));
+                let tmpY = y >= 0 ? y % chunkSize : (chunkSize + y % (chunkSize));
+                tmpX = tmpX == chunkSize ? 0 : tmpX;
+                tmpY = tmpY == chunkSize ? 0 : tmpY;
+                chunks[Math.floor(x / chunkSize) + "," + Math.floor(y / chunkSize)].context.clearRect(tmpX, tmpY, 1, 1);
+            }
         }
         if (Math.abs(currentTool) % 4 !== 3) {
             elements[x + "," + y].draw();
@@ -362,7 +370,7 @@ class Solid extends Element {
 class Liquid extends Element {
     constructor(x, y, color, dispersionRate) {
         super(x, y, color);
-        this.dispersionRate = dispersionRate
+        this.dispersionRate = dispersionRate;
     }
     async step() {
         let targetCell = getElementAtCell(this.x, this.y + 1);
