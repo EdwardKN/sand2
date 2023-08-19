@@ -138,7 +138,9 @@ async function updateChunks() {
 
     let pX = player.x - (canvas.width / 2 - player.w / 2);
     let pY = player.y - (canvas.height / 2 - player.h / 2);
-    let sortedChunks = Object.entries(chunks).sort(function(a, b) {
+    let filteredChunks = Object.entries(chunks).filter(e => { if (e[1].shouldStep) { return true } })
+
+    let sortedChunks = filteredChunks.sort(function(a, b) {
         let aSplit = a[0].split(",")
         let aX = JSON.parse(aSplit[0]);
         let aY = JSON.parse(aSplit[1]);       
@@ -151,8 +153,7 @@ async function updateChunks() {
         }
         return bX - aX;
       });
-    let filteredChunks = sortedChunks.filter(e => { if (e[1].shouldStep) { return true } })
-    let result = filteredChunks.sort(function(a,b){
+    let result = sortedChunks.sort(function(a,b){
         let aSplit = a[0].split(",")
         let aX = JSON.parse(aSplit[0]);
         let aY = JSON.parse(aSplit[1]);       
@@ -162,7 +163,7 @@ async function updateChunks() {
         return (distance(aX,aY,-pX/chunkSize,-pY/chunkSize) - distance(bX,bY,-pX/chunkSize,-pY/chunkSize))
     });
     let tmp = [];
-    for(i = 0; i < filteredChunks.length; i++){
+    for(i = 0; i < sortedChunks.length; i++){
         if(i > maxSimulatedAtTime){
             result[i][1].shouldStepNextFrame = true;
         }else{
@@ -239,15 +240,16 @@ function buttonPress() {
         let y = mouse.y + i % mouseSize - Math.floor(mouseSize / 2 + player.y)
         if (Math.abs(currentTool) % 4 == 0) {
             if (elements[x + "," + y] == undefined) {
-                elements[x + "," + y] = new Sand(x, y)
+                elements[x + "," + y] = new Ice(x, y)
+                elements[x + "," + y].temp = -20
             }
         } else if (Math.abs(currentTool) % 4 == 1) {
             if (elements[x + "," + y] == undefined) {
-                elements[x + "," + y] = new Water(x, y)
+                elements[x + "," + y] = new Wood(x, y)
             }
         } else if (Math.abs(currentTool) % 4 == 2) {
             if (elements[x + "," + y] == undefined) {
-                elements[x + "," + y] = new Acid(x, y)
+                elements[x + "," + y] = new Fire(x, y)
             }
         } else if (Math.abs(currentTool) % 4 == 3) {
             if (true) {
@@ -284,7 +286,7 @@ function testGenerate() {
         for (let y = -500; y < 500; y++) {
             let perlin = getPerlinNoise(x, y, 20, 100)
             if (perlin > 0.5 || Math.abs(x) > 450 || Math.abs(y) > 450) {
-                elements[x + "," + y] = new ImmovableSolid(x, y, rgb(-perlin*200 + 255/2,-perlin*200 + 255/2,-perlin*200 + 255/2))
+                elements[x + "," + y] = new Stone(x, y, rgb(-perlin*200 + 255/2,-perlin*200 + 255/2,-perlin*200 + 255/2))
                 elements[x + "," + y].draw()
             }
         }
@@ -323,36 +325,34 @@ class Chunk {
         c.lineWidth = 1;
         c.strokeRect(Math.floor(chunkX * chunkSize + player.x), Math.floor(chunkY * chunkSize + player.y), chunkSize, chunkSize)
 
+        let elementsToUpdate = [];
+
         for (let y = chunkY * chunkSize + chunkSize; y >= chunkY * chunkSize; y--) {
-            for (let x = chunkX * chunkSize + 1; x < chunkX * chunkSize + chunkSize; x += 2) {
-                if (elements[x + "," + y]?.update && !(elements[x + "," + y] instanceof Gas)) {
-                    elements[x + "," + y]?.update();
-                }
-            }
-            for (let x = chunkX * chunkSize; x < chunkX * chunkSize + chunkSize; x += 2) {
-                if (elements[x + "," + y]?.update && !(elements[x + "," + y] instanceof Gas)) {
-                    elements[x + "," + y]?.update();
-                }
+            for (let x = chunkX * chunkSize; x < chunkX * chunkSize + chunkSize; x ++) {
+                elementsToUpdate.push(elements[x+","+y])
             }
         }
-        for (let y = chunkY * chunkSize; y < chunkY * chunkSize + chunkSize; y++) {
-            for (let x = chunkX * chunkSize + 1; x < chunkX * chunkSize + chunkSize; x += 2) {
-                if (elements[x + "," + y]?.step && (elements[x + "," + y] instanceof Gas)) {
-                    elements[x + "," + y]?.update();
-                }
+        elementsToUpdate = shuffle(elementsToUpdate);
+
+        elementsToUpdate.forEach(e => {
+            if(e){
+                e.update();
             }
-            for (let x = chunkX * chunkSize; x < chunkX * chunkSize + chunkSize; x += 2) {
-                if (elements[x + "," + y]?.update && (elements[x + "," + y] instanceof Gas)) {
-                    elements[x + "," + y]?.update();
-                }
-            }
-        }
+        })
+
+
     }
 }
-
+function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
 
 class Element {
-    constructor(x, y, color) {
+    constructor(x, y, color,meltingPoint,boilingPoint) {
         this.x = x;
         this.y = y;
         this.color = color;
@@ -365,10 +365,27 @@ class Element {
             this.color = "black"
         }
         this.health = 1;
+        this.temp = 20;
+        this.meltingPoint = meltingPoint;
+        this.boilingPoint = boilingPoint;
     }
     async update(){
         if(this.step){this.step();}
         if(this.health <= 0){this.remove()}
+        
+        this.updateTemp();
+
+    }
+    async updateTemp(){
+        if(this.temp > 20){
+            this.temp -= 0.01;
+        }else{
+            this.temp += 0.01;
+        }
+        if(this.temp > this.boilingPoint && this.boil){this.boil();}
+        if(this.temp > this.meltingPoint && this.melt){this.melt();}
+        if(this.temp < this.meltingPoint && this.freeze){this.freeze();}
+        if(this.temp < this.boilingPoint && this.condense){this.condense();}
     }
     async remove(){
         let tmpX = this.x >= 0 ? this.x % chunkSize : (chunkSize + this.x % (chunkSize));
@@ -377,6 +394,19 @@ class Element {
         tmpY = tmpY == chunkSize ? 0 : tmpY;
         chunks[Math.floor(this.x / chunkSize) + "," + Math.floor(this.y / chunkSize)].context.clearRect(tmpX, tmpY, 1, 1);
         elements[this.x + "," + this.y] = undefined
+    }
+    async transformTo(element){
+        let tmpX = this.x >= 0 ? this.x % chunkSize : (chunkSize + this.x % (chunkSize));
+        let tmpY = this.y >= 0 ? this.y % chunkSize : (chunkSize + this.y % (chunkSize));
+        tmpX = tmpX == chunkSize ? 0 : tmpX;
+        tmpY = tmpY == chunkSize ? 0 : tmpY;
+        chunks[Math.floor(this.x / chunkSize) + "," + Math.floor(this.y / chunkSize)].context.clearRect(tmpX, tmpY, 1, 1);
+        let newElement = element;
+        newElement.temp = this.temp;
+        newElement.health = this.health;
+        newElement.draw();
+        elements[this.x + "," + this.y] = newElement;
+
     }
     async draw() {
         if (!chunks[Math.floor(this.x / chunkSize) + "," + Math.floor(this.y / chunkSize)]) {
@@ -463,15 +493,45 @@ class Background extends Element {
 }
 
 class Liquid extends Element {
-    constructor(x, y, color, dispersionRate) {
-        super(x, y, color);
+    constructor(x, y, color,meltingPoint,boilingPoint, dispersionRate) {
+        super(x, y, color,meltingPoint,boilingPoint);
         this.dispersionRate = dispersionRate;
     }
     async step() {
         let targetCell = getElementAtCell(this.x, this.y + 1);
 
+        if(this.actOnOther && targetCell){
+            this.actOnOther(targetCell);
+        }
+        if(this.actOnOther && getElementAtCell(this.x, this.y - 1)){
+            this.actOnOther(getElementAtCell(this.x, this.y - 1));
+        }
+        if(this.actOnOther && getElementAtCell(this.x+1, this.y)){
+            this.actOnOther(getElementAtCell(this.x+1, this.y));
+        }
+        if(this.actOnOther && getElementAtCell(this.x-1, this.y)){
+            this.actOnOther(getElementAtCell(this.x-1, this.y));
+        }
+        if(this.sticky){
+            if(targetCell instanceof Solid && targetCell){
+                return;
+            }
+            if(getElementAtCell(this.x, this.y - 1) instanceof Solid && getElementAtCell(this.x, this.y - 1)){
+                return;
+            }
+            if(getElementAtCell(this.x+1, this.y) instanceof Solid && getElementAtCell(this.x+1, this.y)){
+                return;
+            }
+            if(getElementAtCell(this.x-1, this.y) instanceof Solid && getElementAtCell(this.x-1, this.y)){
+                return;
+            }
+        }
+
         if (targetCell == undefined) {
             this.moveTo(this.x, this.y + 1)
+        }
+        if (targetCell instanceof Gas) {
+            this.switchWith(this.x, this.y + 1)
         }
         if (targetCell !== undefined) {
             this.lookHorizontally(Math.random() > 0.5 ? -1 : 1);
@@ -500,12 +560,25 @@ class Liquid extends Element {
     }
 }
 class Gas extends Element {
-    constructor(x, y, color, dispersionRate) {
-        super(x, y, color);
+    constructor(x, y, color,boilingPoint, dispersionRate) {
+        super(x, y, color,undefined,boilingPoint);
         this.dispersionRate = dispersionRate
     }
     async step() {
         let targetCell = getElementAtCell(this.x, this.y - 1);
+
+        if(this.actOnOther && targetCell){
+            this.actOnOther(targetCell);
+        }
+        if(this.actOnOther && getElementAtCell(this.x, this.y - 1)){
+            this.actOnOther(getElementAtCell(this.x, this.y - 1));
+        }
+        if(this.actOnOther && getElementAtCell(this.x+1, this.y)){
+            this.actOnOther(getElementAtCell(this.x+1, this.y));
+        }
+        if(this.actOnOther && getElementAtCell(this.x-1, this.y)){
+            this.actOnOther(getElementAtCell(this.x-1, this.y));
+        }
 
         if (targetCell == undefined) {
             this.moveTo(this.x, this.y - 1)
@@ -544,6 +617,15 @@ class MovableSolid extends Solid {
         if(this.actOnOther && targetCell){
             this.actOnOther(targetCell);
         }
+        if(this.actOnOther && getElementAtCell(this.x, this.y - 1)){
+            this.actOnOther(getElementAtCell(this.x, this.y - 1));
+        }
+        if(this.actOnOther && getElementAtCell(this.x+1, this.y)){
+            this.actOnOther(getElementAtCell(this.x+1, this.y));
+        }
+        if(this.actOnOther && getElementAtCell(this.x-1, this.y)){
+            this.actOnOther(getElementAtCell(this.x-1, this.y));
+        }
 
         if (targetCell == undefined) {
             this.moveTo(this.x, this.y + 1)
@@ -572,41 +654,96 @@ class MovableSolid extends Solid {
 class ImmovableSolid extends Solid {
 
 }
+class Stone extends ImmovableSolid{
+    constructor(x,y,color){
+        super(x,y,color)
+        this.extinguishingCapability = 0.1;
+    }
+}
 
 class Sand extends MovableSolid{
     constructor(x,y){
-        super(x,y,"#c2b280")
+        super(x,y,"#c2b280",10000)
+    }
+}
+class Ice extends ImmovableSolid{
+    constructor(x,y){
+        super(x,y,"lightblue",0)
+    }
+    melt(){
+        this.transformTo(new Water(this.x,this.y))
     }
 }
 class Water extends Liquid{
     constructor(x,y){
-        super(x,y,"blue",5)
+        super(x,y,"blue",0,100,5)
+        this.extinguishingCapability = 100;
+    }
+    boil(){
+        this.transformTo(new Steam(this.x,this.y))
     }
 }
 class Steam extends Gas{
     constructor(x,y){
-        super(x,y,"lightgray",5)
+        super(x,y,"lightgray",100,5)
+    }
+    condense(){
+        this.transformTo(new Water(this.x,this.y))
     }
 }
 class Wood extends ImmovableSolid{
     constructor(x,y){
-        super(x,y,"brown")
+        super(x,y,"brown",300)
+        this.fireEase = 1;
+        this.extinguishingCapability = 0.01;
+    }
+    melt(){
+        this.transformTo(new Fire(this.x,this.y))
     }
 }
 
-class Acid extends MovableSolid{
+class Acid extends Liquid{
     constructor(x,y){
-        super(x,y,"green")
+        super(x,y,"green",0,100,5)
+        this.extinguishingCapability = 50;
     }
     actOnOther(targetCell){
-        if(!(targetCell instanceof Acid))
-        if(targetCell.acidResistance){
-            targetCell.health -= 1 * targetCell.acidResistance;
-        }else{
-            targetCell.health -= 1;
+        if(!(targetCell instanceof Acid) && targetCell.temp < 150){
+            if(targetCell.acidResistance){
+                targetCell.health -= 0.2 * targetCell.acidResistance;
+            }else{
+                targetCell.health -= 0.2;
+            }
+             this.health-=0.1;
+             this.activateChunks(this.x,this.y,targetCell.x,targetCell.y)
         }
-         this.health-=0.1;
-         this.activateChunks(this.x,this.y,targetCell.x,targetCell.y)
+    }
+    boil(){
+        this.transformTo(new AcidGas(this.x,this.y))
+    }
+}
+class AcidGas extends Gas{
+    constructor(x,y){
+        super(x,y,"lightgreen",100,5)
+    }
+}
+class Fire extends Liquid{
+    constructor(x,y){
+        super(x,y,"orange",200,200,2)
+        this.temp = 1000;
+        this.sticky = true;
+    }
+    actOnOther(targetCell){
+        if(!(targetCell instanceof Fire)){
+            if(!targetCell.fireEase){targetCell.fireEase = 1};
+            if(!targetCell.extinguishingCapability){targetCell.extinguishingCapability = 1};
+                targetCell.temp += 10*targetCell.fireEase;
+                this.temp-=10*targetCell.extinguishingCapability;
+             this.activateChunks(this.x,this.y,targetCell.x,targetCell.y)
+        }
+    }
+    freeze(){
+        this.remove();
     }
 }
 
