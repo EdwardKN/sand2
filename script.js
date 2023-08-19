@@ -112,7 +112,7 @@ async function update() {
         buttonPress();
     }
 
-    updateChunks();
+    let tmp = await updateChunks();
     render();
 
     c.lineWidth = 1;
@@ -126,15 +126,37 @@ async function update() {
     renderC.fillStyle = "gray"
     renderC.fillText(fps, 100, 100)
 
+    renderC.fillStyle = "gray"
+    renderC.fillText(tmp, 100, 120)
+
 }
 
 async function updateChunks() {
-    Object.entries(chunks).filter(e => { if (e[1].shouldStep) { return true } }).forEach(async e => {
-        e[1].update(e[0]);
-    });
+    let sortedChunks = Object.entries(chunks).sort(function(a, b) {
+        let aSplit = a[0].split(",")
+        let aX = JSON.parse(aSplit[0]);
+        let aY = JSON.parse(aSplit[1]);       
+        let bSplit = b[0].split(",")
+        let bX = JSON.parse(bSplit[0]);
+        let bY = JSON.parse(bSplit[1]);       
+
+        if (aX == bX) {
+          return aY - bY;
+        }
+        return bX - aX;
+      });
+    let filteredChunks = sortedChunks.filter(e => { if (e[1].shouldStep) { return true } })
+    
+    for(let i = 0; i < filteredChunks.length; i+= 2){
+        filteredChunks[i][1].update(filteredChunks[i][0])
+    }
+    for(let i = 1; i < filteredChunks.length; i+= 2){
+        filteredChunks[i][1].update(filteredChunks[i][0])
+    }
     Object.entries(chunks).forEach(e => {
         e[1].shiftShouldStepAndReset()
     });
+    return filteredChunks.length;
 }
 
 async function render() {
@@ -182,7 +204,7 @@ function buttonPress() {
                 elements[x + "," + y] = new Gas(x, y, "gray", 5)
             }
         } else if (Math.abs(currentTool) % 4 == 3) {
-            if (!(elements[x + "," + y] instanceof ImmovableSolid)) {
+            if (true) {
                 elements[x + "," + y]?.activateChunks(x, y)
                 elements[x + "," + y] = undefined;
                 let tmpX = x >= 0 ? x % chunkSize : (chunkSize + x % (chunkSize));
