@@ -16,7 +16,7 @@ var scale;
 var mouseSize = 10;
 var currentTool = 0;
 
-var maxSimulatedAtTime = 14;
+var maxSimulatedAtTime = 30;
 
 async function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)) }
 
@@ -134,7 +134,6 @@ async function update() {
 }
 
 async function updateChunks() {
-    
 
     let pX = player.x - (canvas.width / 2 - player.w / 2);
     let pY = player.y - (canvas.height / 2 - player.h / 2);
@@ -164,8 +163,11 @@ async function updateChunks() {
     });
     let tmp = [];
     for(i = 0; i < sortedChunks.length; i++){
-        if(i > maxSimulatedAtTime){
+        if(i >= maxSimulatedAtTime){
             result[i][1].shouldStepNextFrame = true;
+            if(i == sortedChunks.length-1 && fps >= 60){
+                maxSimulatedAtTime++;
+            }
         }else{
             tmp.push(result[i])
         }
@@ -199,6 +201,13 @@ async function updateChunks() {
     });
     return sortedTmp.length;
 }
+
+setInterval(() => {
+    if(fps < 60){
+        maxSimulatedAtTime--;
+    }
+    console.log(maxSimulatedAtTime)
+}, 1000);
 
 function distance(x1, y1, x2, y2){
     const xDist = x2 - x1;
@@ -240,7 +249,7 @@ function buttonPress() {
         let y = mouse.y + i % mouseSize - Math.floor(mouseSize / 2 + player.y)
         if (Math.abs(currentTool) % 4 == 0) {
             if (elements[x + "," + y] == undefined) {
-                elements[x + "," + y] = new Ice(x, y)
+                elements[x + "," + y] = new Water(x, y)
                 elements[x + "," + y].temp = -20
             }
         } else if (Math.abs(currentTool) % 4 == 1) {
@@ -329,7 +338,8 @@ class Chunk {
 
         for (let y = chunkY * chunkSize + chunkSize; y >= chunkY * chunkSize; y--) {
             for (let x = chunkX * chunkSize; x < chunkX * chunkSize + chunkSize; x ++) {
-                elementsToUpdate.push(elements[x+","+y])
+                let element = elements[x+","+y];
+                elementsToUpdate.push(element)
             }
         }
         elementsToUpdate = shuffle(elementsToUpdate);
