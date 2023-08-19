@@ -206,7 +206,6 @@ setInterval(() => {
     if(fps < 60){
         maxSimulatedAtTime--;
     }
-    console.log(maxSimulatedAtTime)
 }, 1000);
 
 function distance(x1, y1, x2, y2){
