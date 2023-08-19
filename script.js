@@ -239,15 +239,15 @@ function buttonPress() {
         let y = mouse.y + i % mouseSize - Math.floor(mouseSize / 2 + player.y)
         if (Math.abs(currentTool) % 4 == 0) {
             if (elements[x + "," + y] == undefined) {
-                elements[x + "," + y] = new MovableSolid(x, y, "#c2b280")
+                elements[x + "," + y] = new Sand(x, y)
             }
         } else if (Math.abs(currentTool) % 4 == 1) {
             if (elements[x + "," + y] == undefined) {
-                elements[x + "," + y] = new Liquid(x, y, "blue", 5)
+                elements[x + "," + y] = new Water(x, y)
             }
         } else if (Math.abs(currentTool) % 4 == 2) {
             if (elements[x + "," + y] == undefined) {
-                elements[x + "," + y] = new Gas(x, y, "gray", 5)
+                elements[x + "," + y] = new Acid(x, y)
             }
         } else if (Math.abs(currentTool) % 4 == 3) {
             if (true) {
@@ -269,10 +269,13 @@ function buttonPress() {
 }
 
 function rgb(r, g, b,a){
+    if(r < 0){r = 0}
+    if(g < 0){g = 0}
+    if(b < 0){b = 0}
     if(a){
-        return ["rgb(",r,",",g,",",b,",",a,")"].join("");
+        return ["rgb(",Math.floor(r),",",Math.floor(g),",",Math.floor(b),",",Math.floor(a),")"].join("");
     }else{
-        return ["rgb(",r,",",g,",",b,")"].join("");
+        return ["rgb(",Math.floor(r),",",Math.floor(g),",",Math.floor(b),")"].join("");
     }
 }
 
@@ -281,7 +284,7 @@ function testGenerate() {
         for (let y = -500; y < 500; y++) {
             let perlin = getPerlinNoise(x, y, 20, 100)
             if (perlin > 0.5 || Math.abs(x) > 450 || Math.abs(y) > 450) {
-                elements[x + "," + y] = new ImmovableSolid(x, y, rgb(perlin*255/2,perlin*255/2,perlin*255/2))
+                elements[x + "," + y] = new ImmovableSolid(x, y, rgb(-perlin*200 + 255/2,-perlin*200 + 255/2,-perlin*200 + 255/2))
                 elements[x + "," + y].draw()
             }
         }
@@ -322,25 +325,25 @@ class Chunk {
 
         for (let y = chunkY * chunkSize + chunkSize; y >= chunkY * chunkSize; y--) {
             for (let x = chunkX * chunkSize + 1; x < chunkX * chunkSize + chunkSize; x += 2) {
-                if (elements[x + "," + y]?.step && !(elements[x + "," + y] instanceof Gas)) {
-                    elements[x + "," + y]?.step();
+                if (elements[x + "," + y]?.update && !(elements[x + "," + y] instanceof Gas)) {
+                    elements[x + "," + y]?.update();
                 }
             }
             for (let x = chunkX * chunkSize; x < chunkX * chunkSize + chunkSize; x += 2) {
-                if (elements[x + "," + y]?.step && !(elements[x + "," + y] instanceof Gas)) {
-                    elements[x + "," + y]?.step();
+                if (elements[x + "," + y]?.update && !(elements[x + "," + y] instanceof Gas)) {
+                    elements[x + "," + y]?.update();
                 }
             }
         }
         for (let y = chunkY * chunkSize; y < chunkY * chunkSize + chunkSize; y++) {
             for (let x = chunkX * chunkSize + 1; x < chunkX * chunkSize + chunkSize; x += 2) {
                 if (elements[x + "," + y]?.step && (elements[x + "," + y] instanceof Gas)) {
-                    elements[x + "," + y]?.step();
+                    elements[x + "," + y]?.update();
                 }
             }
             for (let x = chunkX * chunkSize; x < chunkX * chunkSize + chunkSize; x += 2) {
-                if (elements[x + "," + y]?.step && (elements[x + "," + y] instanceof Gas)) {
-                    elements[x + "," + y]?.step();
+                if (elements[x + "," + y]?.update && (elements[x + "," + y] instanceof Gas)) {
+                    elements[x + "," + y]?.update();
                 }
             }
         }
@@ -361,6 +364,19 @@ class Element {
         if (this.color === undefined) {
             this.color = "black"
         }
+        this.health = 1;
+    }
+    async update(){
+        if(this.step){this.step();}
+        if(this.health <= 0){this.remove()}
+    }
+    async remove(){
+        let tmpX = this.x >= 0 ? this.x % chunkSize : (chunkSize + this.x % (chunkSize));
+        let tmpY = this.y >= 0 ? this.y % chunkSize : (chunkSize + this.y % (chunkSize));
+        tmpX = tmpX == chunkSize ? 0 : tmpX;
+        tmpY = tmpY == chunkSize ? 0 : tmpY;
+        chunks[Math.floor(this.x / chunkSize) + "," + Math.floor(this.y / chunkSize)].context.clearRect(tmpX, tmpY, 1, 1);
+        elements[this.x + "," + this.y] = undefined
     }
     async draw() {
         if (!chunks[Math.floor(this.x / chunkSize) + "," + Math.floor(this.y / chunkSize)]) {
@@ -525,6 +541,10 @@ class MovableSolid extends Solid {
     async step() {
         let targetCell = getElementAtCell(this.x, this.y + 1);
 
+        if(this.actOnOther && targetCell){
+            this.actOnOther(targetCell);
+        }
+
         if (targetCell == undefined) {
             this.moveTo(this.x, this.y + 1)
         }
@@ -551,6 +571,43 @@ class MovableSolid extends Solid {
 }
 class ImmovableSolid extends Solid {
 
+}
+
+class Sand extends MovableSolid{
+    constructor(x,y){
+        super(x,y,"#c2b280")
+    }
+}
+class Water extends Liquid{
+    constructor(x,y){
+        super(x,y,"blue",5)
+    }
+}
+class Steam extends Gas{
+    constructor(x,y){
+        super(x,y,"lightgray",5)
+    }
+}
+class Wood extends ImmovableSolid{
+    constructor(x,y){
+        super(x,y,"brown")
+    }
+}
+
+class Acid extends MovableSolid{
+    constructor(x,y){
+        super(x,y,"green")
+    }
+    actOnOther(targetCell){
+        if(!(targetCell instanceof Acid))
+        if(targetCell.acidResistance){
+            targetCell.health -= 1 * targetCell.acidResistance;
+        }else{
+            targetCell.health -= 1;
+        }
+         this.health-=0.1;
+         this.activateChunks(this.x,this.y,targetCell.x,targetCell.y)
+    }
 }
 
 function getElementAtCell(x, y) {
