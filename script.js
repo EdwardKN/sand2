@@ -3,8 +3,8 @@ var c = canvas.getContext("2d");
 canvas.style.zIndex = "1"
 document.body.appendChild(canvas)
 
-canvas.width = 160 * 2;
-canvas.height = 90 * 2;
+canvas.width = 160;
+canvas.height = 90;
 
 var renderCanvas = document.createElement("canvas");
 var renderC = renderCanvas.getContext("2d");
@@ -15,6 +15,8 @@ var scale;
 
 var mouseSize = 10;
 var currentTool = 0;
+
+var maxSimulatedAtTime = 14;
 
 async function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)) }
 
@@ -132,6 +134,10 @@ async function update() {
 }
 
 async function updateChunks() {
+    
+
+    let pX = player.x - (canvas.width / 2 - player.w / 2);
+    let pY = player.y - (canvas.height / 2 - player.h / 2);
     let sortedChunks = Object.entries(chunks).sort(function(a, b) {
         let aSplit = a[0].split(",")
         let aX = JSON.parse(aSplit[0]);
@@ -146,19 +152,59 @@ async function updateChunks() {
         return bX - aX;
       });
     let filteredChunks = sortedChunks.filter(e => { if (e[1].shouldStep) { return true } })
+    let result = filteredChunks.sort(function(a,b){
+        let aSplit = a[0].split(",")
+        let aX = JSON.parse(aSplit[0]);
+        let aY = JSON.parse(aSplit[1]);       
+        let bSplit = b[0].split(",")
+        let bX = JSON.parse(bSplit[0]);
+        let bY = JSON.parse(bSplit[1]);
+        return (distance(aX,aY,-pX/chunkSize,-pY/chunkSize) - distance(bX,bY,-pX/chunkSize,-pY/chunkSize))
+    });
+    let tmp = [];
+    for(i = 0; i < filteredChunks.length; i++){
+        if(i > maxSimulatedAtTime){
+            result[i][1].shouldStepNextFrame = true;
+        }else{
+            tmp.push(result[i])
+        }
+    } 
+    let sortedTmp = tmp.sort(function(a, b) {
+        let aSplit = a[0].split(",")
+        let aX = JSON.parse(aSplit[0]);
+        let aY = JSON.parse(aSplit[1]);       
+        let bSplit = b[0].split(",")
+        let bX = JSON.parse(bSplit[0]);
+        let bY = JSON.parse(bSplit[1]);       
+
+        if (aX == bX) {
+          return aY - bY;
+        }
+        return bX - aX;
+      });
     
-    for(let i = 0; i < filteredChunks.length; i+= 2){
-        filteredChunks[i][1].update(filteredChunks[i][0])
+    for(let i = 0; i < sortedTmp.length; i+= 2){
+        sortedTmp[i][1].update(sortedTmp[i][0])
     }
-    for(let i = 1; i < filteredChunks.length; i+= 2){
-        filteredChunks[i][1].update(filteredChunks[i][0])
+
+    for(let i = 1; i < sortedTmp.length; i+= 2){
+        sortedTmp[i][1].update(sortedTmp[i][0])
     }
+
+
+    
     Object.entries(chunks).forEach(e => {
         e[1].shiftShouldStepAndReset()
     });
-    return filteredChunks.length;
+    return sortedTmp.length;
 }
 
+function distance(x1, y1, x2, y2){
+    const xDist = x2 - x1;
+    const yDist = y2 - y1;
+
+    return Math.sqrt(Math.pow(xDist, 2) + Math.pow(yDist, 2));
+};
 async function render() {
 
 
@@ -222,12 +268,20 @@ function buttonPress() {
 
 }
 
+function rgb(r, g, b,a){
+    if(a){
+        return ["rgb(",r,",",g,",",b,",",a,")"].join("");
+    }else{
+        return ["rgb(",r,",",g,",",b,")"].join("");
+    }
+}
+
 function testGenerate() {
     for (let x = -500; x < 500; x++) {
         for (let y = -500; y < 500; y++) {
             let perlin = getPerlinNoise(x, y, 20, 100)
             if (perlin > 0.5 || Math.abs(x) > 450 || Math.abs(y) > 450) {
-                elements[x + "," + y] = new ImmovableSolid(x, y, "brown")
+                elements[x + "," + y] = new ImmovableSolid(x, y, rgb(perlin*255/2,perlin*255/2,perlin*255/2))
                 elements[x + "," + y].draw()
             }
         }
@@ -243,7 +297,6 @@ async function init() {
 }
 
 var elements = [];
-
 var chunks = [];
 
 class Chunk {
@@ -263,8 +316,9 @@ class Chunk {
         let coords = cords.split(",")
         let chunkX = JSON.parse(coords[0]);
         let chunkY = JSON.parse(coords[1]);
-        c.fillStyle = "lightgray"
-        c.fillRect(Math.floor(chunkX * chunkSize + player.x), Math.floor(chunkY * chunkSize + player.y), chunkSize, chunkSize)
+        c.strokeStyle = "lightgray"
+        c.lineWidth = 1;
+        c.strokeRect(Math.floor(chunkX * chunkSize + player.x), Math.floor(chunkY * chunkSize + player.y), chunkSize, chunkSize)
 
         for (let y = chunkY * chunkSize + chunkSize; y >= chunkY * chunkSize; y--) {
             for (let x = chunkX * chunkSize + 1; x < chunkX * chunkSize + chunkSize; x += 2) {
@@ -359,11 +413,11 @@ class Element {
             }
             chunks[(Math.floor(x / chunkSize) - 1) + "," + Math.floor(y / chunkSize)].shouldStepNextFrame = true;
         }
-        if (y % chunkSize > chunkSize - 2 || y % chunkSize < -chunkSize + 2) {
-            if (!chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize) - 1)]) {
-                chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize) - 1)] = new Chunk()
+        if (y % chunkSize > chunkSize - 3 || y % chunkSize < -chunkSize + 3) {
+            if (!chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize) + 1)]) {
+                chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize) + 1)] = new Chunk()
             }
-            chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize) - 1)].shouldStepNextFrame = true;
+            chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize) + 1)].shouldStepNextFrame = true;
         }
         if (x % chunkSize < 2 && x % chunkSize > 0 || x % chunkSize > -2 && x % chunkSize < 0) {
             if (!chunks[(Math.floor(x / chunkSize) + 1) + "," + Math.floor(y / chunkSize)]) {
@@ -372,11 +426,11 @@ class Element {
             chunks[(Math.floor(x / chunkSize) + 1) + "," + Math.floor(y / chunkSize)].shouldStepNextFrame = true;
             c.fillStyle = "black"
         }
-        if (y % chunkSize < 2 && y % chunkSize > 0 || y % chunkSize > -2 && y % chunkSize < 0) {
-            if (!chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize) + 1)]) {
-                chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize) + 1)] = new Chunk()
+        if (y % chunkSize < 3 && y % chunkSize > 0 || y % chunkSize > -3 && y % chunkSize < 0) {
+            if (!chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize) - 1)]) {
+                chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize) - 1)] = new Chunk()
             }
-            chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize) + 1)].shouldStepNextFrame = true;
+            chunks[Math.floor(x / chunkSize) + "," + (Math.floor(y / chunkSize) - 1)].shouldStepNextFrame = true;
         }
         if (x2 && y2) {
             this.activateChunks(x2, y2)
@@ -386,6 +440,9 @@ class Element {
 }
 
 class Solid extends Element {
+
+}
+class Background extends Element {
 
 }
 
