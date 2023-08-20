@@ -248,7 +248,7 @@ function buttonPress() {
         let y = mouse.y + i % mouseSize - Math.floor(mouseSize / 2 + player.y)
         if (Math.abs(currentTool) % 4 == 0) {
             if (elements[x + "," + y] == undefined) {
-                elements[x + "," + y] = new Water(x, y)
+                elements[x + "," + y] = new Slime(x, y)
                 elements[x + "," + y].temp = -20
             }
         } else if (Math.abs(currentTool) % 4 == 1) {
@@ -502,9 +502,11 @@ class Background extends Element {
 }
 
 class Liquid extends Element {
-    constructor(x, y, color,meltingPoint,boilingPoint, dispersionRate) {
+    constructor(x, y, color,meltingPoint,boilingPoint, dispersionRate,stickyness) {
         super(x, y, color,meltingPoint,boilingPoint);
         this.dispersionRate = dispersionRate;
+        this.stickyness = stickyness;
+        this.currentStickyness = 0;
     }
     async step() {
         let targetCell = getElementAtCell(this.x, this.y + 1);
@@ -521,17 +523,32 @@ class Liquid extends Element {
         if(this.actOnOther && getElementAtCell(this.x-1, this.y)){
             this.actOnOther(getElementAtCell(this.x-1, this.y));
         }
-        if(this.sticky){
+        if(this.stickyness){
             if(targetCell instanceof Solid && targetCell){
-                return;
+                this.currentStickyness = this.stickyness;
             }
             if(getElementAtCell(this.x, this.y - 1) instanceof Solid && getElementAtCell(this.x, this.y - 1)){
-                return;
+                this.currentStickyness = this.stickyness;
             }
             if(getElementAtCell(this.x+1, this.y) instanceof Solid && getElementAtCell(this.x+1, this.y)){
-                return;
+                this.currentStickyness = this.stickyness;
             }
             if(getElementAtCell(this.x-1, this.y) instanceof Solid && getElementAtCell(this.x-1, this.y)){
+                this.currentStickyness = this.stickyness;
+            }
+            if(targetCell?.currentStickyness > 1){
+                this.currentStickyness = targetCell.currentStickyness-1;
+            }
+            if(getElementAtCell(this.x, this.y-1)?.currentStickyness > 1){
+                this.currentStickyness = getElementAtCell(this.x, this.y-1).currentStickyness-1;
+            }
+            if(getElementAtCell(this.x+1, this.y)?.currentStickyness > 1){
+                this.currentStickyness = getElementAtCell(this.x+1, this.y).currentStickyness-1;
+            }
+            if(getElementAtCell(this.x-1, this.y)?.currentStickyness > 1){
+                this.currentStickyness = getElementAtCell(this.x-1, this.y).currentStickyness-1;
+            }
+            if(this.currentStickyness){
                 return;
             }
         }
@@ -666,7 +683,7 @@ class ImmovableSolid extends Solid {
 class Stone extends ImmovableSolid{
     constructor(x,y,color){
         super(x,y,color)
-        this.extinguishingCapability = 0.1;
+        this.extinguishingCapability = 1;
     }
 }
 
@@ -692,12 +709,26 @@ class Water extends Liquid{
         this.transformTo(new Steam(this.x,this.y))
     }
 }
+class Slime extends Liquid{
+    constructor(x,y){
+        super(x,y,"green",0,100,5,10)
+        this.extinguishingCapability = 100;
+    }
+    boil(){
+        this.transformTo(new AcidGas(this.x,this.y))
+    }
+}
 class Steam extends Gas{
     constructor(x,y){
         super(x,y,"lightgray",100,5)
     }
     condense(){
         this.transformTo(new Water(this.x,this.y))
+    }
+}
+class Smoke extends Gas{
+    constructor(x,y){
+        super(x,y,"gray",100,5)
     }
 }
 class Wood extends ImmovableSolid{
@@ -738,9 +769,8 @@ class AcidGas extends Gas{
 }
 class Fire extends Liquid{
     constructor(x,y){
-        super(x,y,"orange",200,200,2)
+        super(x,y,"orange",200,200,2,2)
         this.temp = 1000;
-        this.sticky = true;
     }
     actOnOther(targetCell){
         if(!(targetCell instanceof Fire)){
@@ -752,7 +782,7 @@ class Fire extends Liquid{
         }
     }
     freeze(){
-        this.remove();
+        this.transformTo(new Smoke(this.x,this.y))
     }
 }
 
