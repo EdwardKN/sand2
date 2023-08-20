@@ -14,6 +14,7 @@ document.body.appendChild(renderCanvas)
 var scale;
 
 var mouseSize = 10;
+var mouseColor = "black";
 var currentTool = 0;
 
 var maxSimulatedAtTime = 30;
@@ -246,20 +247,44 @@ function buttonPress() {
     for (let i = 0; i < Math.pow(mouseSize, 2); i++) {
         let x = mouse.x + Math.floor(i / mouseSize) - Math.floor(mouseSize / 2 + player.x);
         let y = mouse.y + i % mouseSize - Math.floor(mouseSize / 2 + player.y)
-        if (Math.abs(currentTool) % 4 == 0) {
+        if (Math.abs(currentTool) % 10 == 0) {
             if (elements[x + "," + y] == undefined) {
-                elements[x + "," + y] = new Slime(x, y)
+                elements[x + "," + y] = new Water(x, y)
                 elements[x + "," + y].temp = -20
             }
-        } else if (Math.abs(currentTool) % 4 == 1) {
+        } else if (Math.abs(currentTool) % 10 == 1) {
             if (elements[x + "," + y] == undefined) {
                 elements[x + "," + y] = new Wood(x, y)
             }
-        } else if (Math.abs(currentTool) % 4 == 2) {
+        } else if (Math.abs(currentTool) % 10 == 2) {
             if (elements[x + "," + y] == undefined) {
                 elements[x + "," + y] = new Fire(x, y)
             }
-        } else if (Math.abs(currentTool) % 4 == 3) {
+        } else if (Math.abs(currentTool) % 10 == 3) {
+            if (elements[x + "," + y] == undefined) {
+                elements[x + "," + y] = new Ice(x, y)
+            }
+        } else if (Math.abs(currentTool) % 10 == 4) {
+            if (elements[x + "," + y] == undefined) {
+                elements[x + "," + y] = new Acid(x, y)
+            }
+        } else if (Math.abs(currentTool) % 10 == 5) {
+            if (elements[x + "," + y] == undefined) {
+                elements[x + "," + y] = new Stone(x, y)
+            }
+        } else if (Math.abs(currentTool) % 10 == 6) {
+            if (elements[x + "," + y] == undefined) {
+                elements[x + "," + y] = new Slime(x, y)
+            }
+        } else if (Math.abs(currentTool) % 10 == 7) {
+            if (elements[x + "," + y] == undefined) {
+                elements[x + "," + y] = new Lava(x, y)
+            }
+        } else if (Math.abs(currentTool) % 10 == 8) {
+            if (elements[x + "," + y] == undefined) {
+                elements[x + "," + y] = new Ketchup(x, y)
+            }
+        }  else if (Math.abs(currentTool) % 10 == 9) {
             if (true) {
                 elements[x + "," + y]?.activateChunks(x, y)
                 elements[x + "," + y] = undefined;
@@ -270,7 +295,9 @@ function buttonPress() {
                 chunks[Math.floor(x / chunkSize) + "," + Math.floor(y / chunkSize)].context.clearRect(tmpX, tmpY, 1, 1);
             }
         }
+
         if (Math.abs(currentTool) % 4 !== 3) {
+            mouseColor = elements[x + "," + y].color;
             elements[x + "," + y].draw();
             chunks[Math.floor(x / chunkSize) + "," + Math.floor(y / chunkSize)].shouldStepNextFrame = true;
         }
@@ -507,6 +534,7 @@ class Liquid extends Element {
         this.dispersionRate = dispersionRate;
         this.stickyness = stickyness;
         this.currentStickyness = 0;
+        this.flowSpeed = 1000;
     }
     async step() {
         let targetCell = getElementAtCell(this.x, this.y + 1);
@@ -559,8 +587,12 @@ class Liquid extends Element {
         if (targetCell instanceof Gas) {
             this.switchWith(this.x, this.y + 1)
         }
-        if (targetCell !== undefined) {
-            this.lookHorizontally(Math.random() > 0.5 ? -1 : 1);
+        if(Math.random()*(this.flowSpeed+1) > 0.9){
+            if (targetCell !== undefined) {
+                this.lookHorizontally(Math.random() > 0.5 ? -1 : 1);
+            }
+        }else{
+            this.activateChunks(this.x,this.y)
         }
     }
     async lookHorizontally(dir) {
@@ -712,7 +744,8 @@ class Water extends Liquid{
 class Slime extends Liquid{
     constructor(x,y){
         super(x,y,"green",0,100,5,10)
-        this.extinguishingCapability = 100;
+        this.extinguishingCapability = 1;
+        this.flowSpeed = 0.0001;
     }
     boil(){
         this.transformTo(new AcidGas(this.x,this.y))
@@ -777,12 +810,42 @@ class Fire extends Liquid{
             if(!targetCell.fireEase){targetCell.fireEase = 1};
             if(!targetCell.extinguishingCapability){targetCell.extinguishingCapability = 1};
                 targetCell.temp += 10*targetCell.fireEase;
-                this.temp-=10*targetCell.extinguishingCapability;
+                this.temp-=10*targetCell.extinguishingCapability * this.tempLoosingFactor;
              this.activateChunks(this.x,this.y,targetCell.x,targetCell.y)
         }
     }
     freeze(){
         this.transformTo(new Smoke(this.x,this.y))
+    }
+}
+class Lava extends Liquid{
+    constructor(x,y){
+        super(x,y,"#FF3300",800,1200,1,1)
+        this.temp = 1200;
+        this.tempLoosingFactor = 0.1;
+        this.flowSpeed = 0.0000001;
+    }
+    actOnOther(targetCell){
+        if(!(targetCell instanceof Lava)){
+            if(!targetCell.fireEase){targetCell.fireEase = 1};
+            if(!this.tempLoosingFactor){this.tempLoosingFactor = 1};
+            if(!targetCell.extinguishingCapability){targetCell.extinguishingCapability = 1};
+                targetCell.temp += 10*targetCell.fireEase;
+                this.temp-=10*targetCell.extinguishingCapability * this.tempLoosingFactor;
+             this.activateChunks(this.x,this.y,targetCell.x,targetCell.y)
+        }
+    }
+    freeze(){
+        this.transformTo(new Stone(this.x,this.y))
+    }
+}
+class Ketchup extends Liquid{
+    constructor(x,y){
+        super(x,y,"red",0,100,1,5)
+        this.flowSpeed = 0.0000001;
+    }
+    boil(){
+        this.transformTo(new Steam(this.x,this.y))
     }
 }
 
